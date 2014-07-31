@@ -1,0 +1,87 @@
+#!/bin/bash
+
+# 'bob' the builder
+# Script to rebuild go project automatically when files are modified.
+# author: Varun Vasan V<varunvasan91@gmail.com>
+
+# Defining colours for displaying in console
+gray='\e[38;5;239m'
+yellow='\e[38;5;227m'
+green='\e[38;5;154m'
+blue='\e[38;5;123m'
+red='\e[38;5;124m'
+reset='\e[0m'
+
+# process id
+opid=0
+
+# Check if inotify-tools is present
+inotifywait_present=$(which inotifywait)
+if [ $? -ne 0 ]; then
+	echo -e "${gray}$(date "+%H:%M:%S %d/%m/%Y ")${reset}${red}This program requires inotifywait to run. Please install inotify-tools.!${reset}"
+	exit
+fi
+
+# Function to handle ctrl+c
+finalize() {
+	echo -e "\r${gray}$(date "+%H:%M:%S %d/%m/%Y ")${reset}${yellow}[$filename]${reset} ${green}exiting.${reset}"
+	exit;
+}
+trap 'finalize' SIGINT
+
+# Getting directory name to be used to create logs.
+DIR=$(pwd)
+filename=$(basename $DIR)
+
+if [ ! -d "logs" ]; then
+	mkdir logs
+fi
+
+# Check to see if buildable go files are present in the current directory.
+ls | grep -e ".*\.go$" > /dev/null 2>&1
+files_present=$?
+if [ $files_present -ne 0 ]; then
+	echo -e "${gray}$(date "+%H:%M:%S %d/%m/%Y ")${reset}${red}No buildable files found. ${reset}"
+	exit
+fi
+
+# Log file name based on current date, time and projectname
+logfile=organon_$(date +%H%M%S_%d%m%Y)
+echo -e "${gray}$(date "+%H:%M:%S %d/%m/%Y ")${reset}${yellow}[$filename]${reset}${blue} log file: logs/$logfile${reset}${reset}"
+
+# Check continuously for file update
+while true; do
+
+	build_message=$(go build 2>&1)
+	build_status=$?
+
+	if [ $build_status -eq 0 ]; then
+		echo -e "${gray}$(date "+%H:%M:%S %d/%m/%Y ")${reset}${yellow}[$filename]${reset} ${green}build successful. ${reset}"
+		./$filename>>logs/$logfile 2>&1 &
+		opid=$!
+
+		# Check if process started.
+		ps axo pid,comm | grep -q "$opid $filename"
+		process_status=$?
+		if [ $process_status -ne 0 ]; then
+			echo -e "${gray}$(date "+%H:%M:%S %d/%m/%Y ")${reset}${red}error starting $filename!${reset}\n"
+			echo -e "${blue} --- LOG --- ${reset}\n"
+			cat logs/$logfile
+			exit
+		fi
+	else
+		echo -e "${gray}$(date "+%H:%M:%S %d/%m/%Y ")${reset}${yellow}[$filename]${reset} ${red}build failed. ${reset}"
+		echo -e "${red}$build_message${reset}"
+	fi
+
+	# Wait till any events occur
+	change=$(inotifywait --exclude .idea/ -qq -c -r -e close_write,moved_to,create $DIR)
+
+	ps axo pid,comm | grep -q "$opid $filename"
+	process_status=$?
+	if [ $opid -ne 0 ] && [ $process_status -eq 0 ]; then
+		kill $opid>/dev/null
+	fi
+done
+
+# end
