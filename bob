@@ -46,7 +46,7 @@ if [ $files_present -ne 0 ]; then
 fi
 
 # Log file name based on current date, time and projectname
-logfile=organon_$(date +%H%M%S_%d%m%Y)
+logfile="$filename"_$(date +%H%M%S_%d%m%Y)
 echo -e "${gray}$(date "+%H:%M:%S %d/%m/%Y ")${reset}${yellow}[$filename]${reset}${blue} log file: logs/$logfile${reset}${reset}"
 
 # Check continuously for file update
