@@ -13,7 +13,7 @@ red='\e[38;5;124m'
 reset='\e[0m'
 
 # process id
-opid=0
+opid=-1
 
 # Check if inotify-tools is present
 inotifywait_present=$(which inotifywait)
@@ -47,7 +47,7 @@ fi
 
 # Log file name based on current date, time and projectname
 logfile="$filename"_$(date +%H%M%S_%d%m%Y)
-echo -e "${gray}$(date "+%H:%M:%S %d/%m/%Y ")${reset}${yellow}[$filename]${reset}${blue} log file: logs/$logfile${reset}${reset}"
+echo -e "${gray}$(date "+%H:%M:%S %d/%m/%Y ")${reset}${yellow}[$filename]${reset}${blue} log file: $DIR/logs/$logfile${reset}${reset}"
 
 # Check continuously for file update
 while true; do
@@ -61,7 +61,7 @@ while true; do
 		opid=$!
 
 		# Check if process started.
-		ps axo pid,comm | grep -q "$opid $filename"
+		ps axo pid | grep -q -e "$opid"
 		process_status=$?
 		if [ $process_status -ne 0 ]; then
 			echo -e "${gray}$(date "+%H:%M:%S %d/%m/%Y ")${reset}${red}error starting $filename!${reset}\n"
@@ -75,9 +75,9 @@ while true; do
 	fi
 
 	# Wait till any events occur
-	change=$(inotifywait --exclude .idea/ -qq -c -r -e close_write,moved_to,create $DIR)
+	change=$(inotifywait --exclude .idea/\|.git/ -c -q -r -e close_write,moved_to,moved_from,delete,create $DIR)
 
-	ps axo pid,comm | grep -q "$opid $filename"
+	ps axo pid | grep -q -e "$opid"
 	process_status=$?
 	if [ $opid -ne 0 ] && [ $process_status -eq 0 ]; then
 		kill $opid>/dev/null
