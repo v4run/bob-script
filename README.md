@@ -7,7 +7,7 @@ Getting
 ===
 
 ```
-git clone git@github.com:varunvv91/bob.git
+git clone git@github.com:v4run/bob.git
 ```
 
 Running
